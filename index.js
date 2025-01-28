@@ -8,18 +8,29 @@ const httpServer = http.createServer((req, res) => {
   if (url === "/") {
     res.setHeader("Content-Type", "text/html");
 
-    fs.readFile("formvalue.txt", (err, data) => {
-      let savedValue = "";
-
+    // Read the file and display messages
+    fs.readFile("message.txt", (err, data) => {
+      let messages = [];
       if (!err) {
-        savedValue = data.toString();
+        messages = data
+          .toString()
+          .split("\n")
+          .filter((msg) => msg.trim() !== "");
       }
 
+      const messagesHTML = messages
+        .reverse()
+        .map((msg) => `<p>${msg}</p>`)
+        .join("");
+
       res.end(`
-        <h1>Saved Value: ${savedValue || "No data saved yet"}</h1>
+        <div>
+          <h1>Messages:</h1>
+          ${messagesHTML}
+        </div>
         <form action="/message" method="POST">
-          <label>Name :</label>
-          <input type="text" name="username" required></input>
+          <label>Message :</label>
+          <input type="text" name="message" required></input>
           <button type="submit">Submit</button>
         </form>
       `);
@@ -32,11 +43,18 @@ const httpServer = http.createServer((req, res) => {
     });
 
     req.on("end", () => {
-      let buffer = Buffer.concat(body);
-      let formData = buffer.toString();
-      let formValue = formData.split("=")[1];
+      const buffer = Buffer.concat(body);
+      const formData = buffer.toString();
+      const message = formData.split("=")[1];
 
-      fs.writeFile("formvalue.txt", formValue, (err) => {
+      // Decode the message to handle special characters like spaces
+      const decodedMessage = decodeURIComponent(message);
+
+      // Append the new message to the file
+      fs.appendFile("message.txt", `${decodedMessage}\n`, (err) => {
+        if (err) {
+          console.error("Error writing to file:", err);
+        }
         res.statusCode = 302;
         res.setHeader("Location", "/");
         res.end();
